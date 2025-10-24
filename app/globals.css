@@ -1,12 +1,19 @@
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0a0b10;
+  --background-accent: radial-gradient(800px 400px at 20% 10%, rgba(24, 144, 255, 0.12), transparent 60%),
+    radial-gradient(700px 350px at 80% 20%, rgba(99, 102, 241, 0.12), transparent 60%),
+    linear-gradient(180deg, #0a0b10 0%, #0a0b10 100%);
+  --surface: rgba(255, 255, 255, 0.04);
+  --surface-strong: rgba(255, 255, 255, 0.08);
+  --border: rgba(255, 255, 255, 0.12);
+  --foreground: #e6e8ee;
+  --muted: rgba(230, 232, 238, 0.65);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #0a0b10;
+    --foreground: #e6e8ee;
   }
 }
 
@@ -19,6 +26,7 @@ body {
 body {
   color: var(--foreground);
   background: var(--background);
+  background-image: var(--background-accent);
   font-family: Arial, Helvetica, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -39,4 +47,47 @@ a {
   html {
     color-scheme: dark;
   }
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.main-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.content-wrapper {
+  flex-grow: 1;
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px 20px;
+}
+
+/* Glass surfaces */
+.glass {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 16px;
+}
+
+.glass-strong {
+  background: var(--surface-strong);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-radius: 16px;
+}
+
+/* Inputs with white placeholder */
+.input-white::placeholder {
+  color: #ffffff;
+  opacity: 0.7;
 }
