@@ -1,55 +1,26 @@
 import { NextRequest } from "next/server";
-import http from "http";
 
-export const runtime = "nodejs"; // важно! чтобы Next не испортил поток
+export const runtime = "nodejs";
 
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   const backendUrl = "http://localhost:5000/events";
 
-  return new Response(
-    new ReadableStream({
-      start(controller) {
-        const request = http.get(backendUrl, (proxyRes) => {
-          proxyRes.on("data", (chunk) => {
-            try {
-              controller.enqueue(chunk);
-            } catch {
-              // поток уже закрыт — просто игнорируем
-            }
-          });
+  const backendResponse = await fetch(backendUrl, {
+    headers: {
+      Accept: "text/event-stream",
+    },
+  });
 
-          proxyRes.on("end", () => {
-            try {
-              controller.close();
-            } catch {
-              // уже закрыт — ничего страшного
-            }
-          });
-        });
+  if (!backendResponse.ok || !backendResponse.body) {
+    return new Response("SSE backend error", { status: 502 });
+  }
 
-        request.on("error", (err) => {
-          console.error("SSE proxy error:", err);
-          try {
-            controller.close();
-          } catch {}
-        });
-
-        // если клиент закрыл соединение — закроем и бэкенд
-        req.signal.addEventListener("abort", () => {
-          request.destroy();
-          try {
-            controller.close();
-          } catch {}
-        });
-      },
-    }),
-    {
-      headers: {
-        "Content-Type": "text/event-stream",
-        Connection: "keep-alive",
-        "Cache-Control": "no-cache",
-        "Access-Control-Allow-Origin": "*",
-      },
-    }
-  );
+  return new Response(backendResponse.body, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      Connection: "keep-alive",
+      "Cache-Control": "no-cache",
+      "Access-Control-Allow-Origin": "*",
+    },
+  });
 }

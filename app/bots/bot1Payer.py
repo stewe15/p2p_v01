@@ -17,6 +17,7 @@ logging.basicConfig(level=logging.INFO)
 BOT_TOKEN = os.getenv('BOT1_TOKEN')
 API_BASE_URL = os.getenv('API_BASE_URL', 'http://localhost:5000')
 STARS_PROVIDER_TOKEN = os.getenv('STARS_PAYMENT_PROVIDER_TOKEN') 
+MOCK_PAYMENTS = os.getenv('MOCK_PAYMENTS', '1') == '1'
 
 if not BOT_TOKEN:
     print("❌ Ошибка: BOT1_TOKEN не найден!")
@@ -71,6 +72,32 @@ def update_deal_status(deal_id, status):
         return None
 
 
+def get_balance(telegram_id: str):
+    try:
+        r = requests.post(f"{API_BASE_URL}/getBalance", json={"telegram_id": telegram_id})
+        if r.status_code == 200:
+            return r.json().get('balance')
+        logging.error(f"get_balance error: {r.status_code} {r.text}")
+        return None
+    except Exception as e:
+        logging.error(f"get_balance exception: {e}")
+        return None
+
+
+def change_balance(telegram_id: str, delta_rub: int = 0, delta_stars: int = 0):
+    try:
+        payload = {
+            "telegram_id": telegram_id,
+            "delta_rub": delta_rub,
+            "delta_stars": delta_stars,
+        }
+        r = requests.post(f"{API_BASE_URL}/changeBalance", json=payload)
+        return r
+    except Exception as e:
+        logging.error(f"change_balance exception: {e}")
+        return None
+
+
 async def send_invoice_with_stars_payment(chat_id: int, deal: dict):
     deal_id = deal.get('uid')
     stars = int(deal.get('stars_amount', 0))
@@ -78,8 +105,12 @@ async def send_invoice_with_stars_payment(chat_id: int, deal: dict):
     
     stars_in_nanostars = stars * 1000
 
+    # Если токен не настроен, не пытаемся создавать реальный инвойс здесь
     if not STARS_PROVIDER_TOKEN:
-        await bot.send_message(chat_id, "❌ Ошибка: Токен Telegram Stars не настроен.")
+        await bot.send_message(
+            chat_id,
+            "⚠️ Токен Telegram Stars не настроен, работаем в режиме мока."
+        )
         return
 
     keyboard = InlineKeyboardBuilder()
@@ -90,7 +121,7 @@ async def send_invoice_with_stars_payment(chat_id: int, deal: dict):
         title="Получение оплаты звёздами 🌟",
         description=f"Оплата сделки {deal_id} от {buyer}",
         payload=f"stars_{deal_id}",
-        provider_token="",
+        provider_token=STARS_PROVIDER_TOKEN,
         currency="XTR",
         prices=[LabeledPrice(label=f"{stars}⭐", amount=stars_in_nanostars)],
         start_parameter="stars_payment",
@@ -101,11 +132,52 @@ async def send_invoice_with_stars_payment(chat_id: int, deal: dict):
 @dp.message(Command("start"))
 async def start_handler(message: types.Message, command: CommandObject = None):
     args = command.args if command else None
-    
+
     if args:
-        deal_id = unquote_plus(args.strip())
-        await show_specific_deal(message, deal_id)
+        raw = unquote_plus(args.strip())
+
+        if raw.startswith("c_"):
+            rest = raw[2:]
+            parts = rest.split("_")
+            if len(parts) >= 4:
+                uid = parts[0]
+                price_str = parts[-1]
+                stars_str = parts[-2]
+                seller_tg_encoded = "_".join(parts[1:-2])
+
+                try:
+                    stars = int(stars_str)
+                    price = int(float(price_str))
+                except ValueError:
+                    await message.answer("❌ Неверные параметры сделки в ссылке.")
+                    return
+
+                seller_tg_display = f"@{seller_tg_encoded}" if seller_tg_encoded else "Неизвестно"
+
+                text = (
+                    "💫 Моковый перевод звёзд\n\n"
+                    "Вы хотите создать сделку:\n"
+                    f"{stars} ⭐ за {price} ₽\n"
+                    f"ID: <code>{uid}</code>\n"
+                    f"Продавец: <code>{seller_tg_display}</code>\n\n"
+                    "Нажмите кнопку ниже, чтобы отправить звёзды (mock) и создать сделку."
+                )
+
+                kb = InlineKeyboardBuilder()
+                kb.add(
+                    InlineKeyboardButton(
+                        text="💫 (MOCK) Отправить звёзды и создать сделку",
+                        callback_data=f"create_cdeal_{uid}_{seller_tg_encoded}_{stars}_{price}",
+                    )
+                )
+                kb.adjust(1)
+
+                await message.answer(text, parse_mode="HTML", reply_markup=kb.as_markup())
+                return
+
+        await show_specific_deal(message, raw)
         return
+
     await message.answer("🌟 Привет! Это бот продавца.\nИспользуй /mydeals для просмотра сделок.")
 
 
@@ -177,14 +249,78 @@ async def show_specific_deal(message: types.Message, deal_id: str):
 @dp.callback_query()
 async def callback_handler(c: types.CallbackQuery):
     data = c.data
+    if data.startswith("create_cdeal_"):
+        rest = data[len("create_cdeal_"):]
+        parts = rest.split("_")
+        if len(parts) < 4:
+            await c.answer("Неверные параметры сделки", show_alert=True)
+            return
+
+        uid = parts[0]
+        price_str = parts[-1]
+        stars_str = parts[-2]
+        seller_tg_encoded = "_".join(parts[1:-2])
+
+        try:
+            stars = int(stars_str)
+            price = int(float(price_str))
+        except ValueError:
+            await c.answer("Неверные параметры сделки", show_alert=True)
+            return
+
+        seller_id = f"@{seller_tg_encoded}" if seller_tg_encoded else (f"@{c.from_user.username}" if c.from_user.username else str(c.from_user.id))
+
+        deal_payload = {
+            "uid": uid,
+            "telegram_id": seller_id,
+            "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "status": "active",
+            "stars_amount": stars,
+            "price": price,
+            "buyer": ""
+        }
+
+        try:
+            r = requests.post(f"{API_BASE_URL}/handleDeal", json=deal_payload)
+            if r.status_code == 200 and r.json().get("success"):
+                await c.message.edit_text(
+                    f"✅ (MOCK) Звёзды отправлены, сделка создана.\nID: <code>{uid}</code>",
+                    parse_mode="HTML"
+                )
+                await c.answer("Сделка создана", show_alert=False)
+            else:
+                logging.error(f"Create deal via bot error: {r.status_code} {r.text}")
+                await c.answer("Не удалось создать сделку", show_alert=True)
+        except Exception as e:
+            logging.error(f"Create deal via bot exception: {e}")
+            await c.answer("Ошибка при создании сделки", show_alert=True)
+        return
+
     deal_id = data.split("_")[-1]
 
     if data.startswith("stars_pay_"):
+
         deal = get_deal_by_id(deal_id)
         if not deal:
             await c.answer("❌ Сделка не найдена.", show_alert=True)
             return
-        
+
+        if not STARS_PROVIDER_TOKEN or MOCK_PAYMENTS:
+
+            result = update_deal_status(deal_id, "completed")
+            if result and result.get('success'):
+                await c.message.edit_text(
+                    f"✅ (MOCK) Звёзды отправлены, сделка <code>{deal_id}</code> завершена.",
+                    parse_mode="HTML"
+                )
+            else:
+                await c.message.edit_text(
+                    f"⚠️ (MOCK) Не удалось обновить сделку <code>{deal_id}</code>.",
+                    parse_mode="HTML"
+                )
+            await c.answer("Сделка завершена (mock)", show_alert=False)
+            return
+
         await send_invoice_with_stars_payment(c.message.chat.id, deal)
         
         await c.message.edit_text(
@@ -198,7 +334,7 @@ async def callback_handler(c: types.CallbackQuery):
         if not deal:
             await c.answer("❌ Сделка не найдена.", show_alert=True)
             return
-            
+
         stars = int(deal.get('stars_amount', 0))
         price = float(deal.get('price', 0))
         status = deal.get('status', 'unknown')
@@ -214,7 +350,7 @@ async def callback_handler(c: types.CallbackQuery):
 📊 Статус: {status.upper()}
 🆔 ID: <code>{deal_id}</code>
         """
-        
+
         kb = InlineKeyboardBuilder()
         if status == "pending":
             text += "\n💫 <b>Покупатель готов оплатить звёздами!</b>"
@@ -224,7 +360,7 @@ async def callback_handler(c: types.CallbackQuery):
 
         await c.message.edit_text(text, parse_mode="HTML", reply_markup=kb.as_markup())
         await c.answer("🔄 Статус обновлен.")
-        
+
     else:
         await c.answer()
 

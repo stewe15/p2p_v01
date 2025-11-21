@@ -1,0 +1,254 @@
+[
+    {
+        "uid": "5mOTILotX21m",
+        "telegram_id": "@ivan12",
+        "time": "2025-9-18 22:47:25",
+        "status": "pending",
+        "stars_amount": "20",
+        "price": "10",
+        "buyer": "@ivan12"
+    },
+    {
+        "uid": "CEfEHMtugkiH",
+        "telegram_id": "@ivan12",
+        "time": "2025-9-19 18:15:38",
+        "status": "pending",
+        "stars_amount": "1",
+        "price": "9",
+        "buyer": "@max"
+    },
+    {
+        "uid": "4xiq9yvshTiE",
+        "telegram_id": "@ivan12",
+        "time": "2025-9-19 18:40:21",
+        "status": "pending",
+        "stars_amount": "15",
+        "price": "30",
+        "buyer": "@ivan12"
+    },
+    {
+        "uid": "vduvFOwlCNwE",
+        "telegram_id": "@ivan12",
+        "time": "2025-9-19 19:59:59",
+        "status": "pending",
+        "stars_amount": "35",
+        "price": "18",
+        "buyer": "@stewe12"
+    },
+    {
+        "uid": "LHM4k40gFBAa",
+        "telegram_id": "@ivan12",
+        "time": "2025-9-23 10:28:30",
+        "status": "pending",
+        "stars_amount": "10",
+        "price": "6",
+        "buyer": "@stewe12"
+    },
+    {
+        "uid": "vT3l3xENso35",
+        "telegram_id": "@stewe12",
+        "time": "2025-9-25 10:38:15",
+        "status": "pending",
+        "stars_amount": "35",
+        "price": "35",
+        "buyer": "@stewe12"
+    },
+    {
+        "uid": "IAWzb6IxKUUj",
+        "telegram_id": "@stewe12",
+        "time": "2025-9-25 16:12:38",
+        "status": "pending",
+        "stars_amount": "25",
+        "price": 32.7,
+        "buyer": "@anton12"
+    },
+    {
+        "uid": "HBGO3MZB3Aj4",
+        "telegram_id": "@stewe12",
+        "time": "2025-9-25 18:51:28",
+        "status": "completed",
+        "stars_amount": "25000",
+        "price": 163500,
+        "buyer": "@stewe1748"
+    },
+    {
+        "uid": "EfxqfIA7U71h",
+        "telegram_id": "@stewe12",
+        "time": "2025-9-26 11:50:46",
+        "status": "completed",
+        "stars_amount": "10",
+        "price": 10,
+        "buyer": "12435465768798090"
+    },
+    {
+        "uid": "eB3UaC61P4rE",
+        "telegram_id": "@stewe12",
+        "time": "2025-9-26 12:11:0",
+        "status": "completed",
+        "stars_amount": "250",
+        "price": 10,
+        "buyer": "@admin"
+    },
+    {
+        "uid": "q61ioMNL6gVJ",
+        "telegram_id": "@strewe",
+        "time": "2025-10-7 18:43:49",
+        "status": "pending",
+        "stars_amount": "12",
+        "price": 1090,
+        "buyer": "@stewe1344"
+    },
+    {
+        "uid": "MkbXNVaMX0ZZ",
+        "telegram_id": "@strewe",
+        "time": "2025-10-7 18:46:50",
+        "status": "pending",
+        "stars_amount": "2588",
+        "price": 1090,
+        "buyer": "@stewe1344"
+    },
+    {
+        "uid": "KbdWnAWC1vBj",
+        "telegram_id": "@strewe",
+        "time": "2025-10-7 18:59:36",
+        "status": "pending",
+        "stars_amount": "77",
+        "price": 83,
+        "buyer": "@stewe1748"
+    },
+    {
+        "uid": "lK5L2bKQ1IZA",
+        "telegram_id": "@strewe",
+        "time": "2025-10-7 19:8:20",
+        "status": "pending",
+        "stars_amount": "67",
+        "price": 73,
+        "buyer": "@stewe1344"
+    },
+    {
+        "uid": "B4HbC9YcCFgh",
+        "telegram_id": "@strewe",
+        "time": "2025-10-7 19:17:48",
+        "status": "active",
+        "stars_amount": "2673",
+        "price": 109,
+        "buyer": ""
+    },
+    {
+        "uid": "l7CPMWIDTOKD",
+        "telegram_id": "@stewe1344",
+        "time": "2025-11-18 22:37:16",
+        "status": "pending",
+        "stars_amount": "10",
+        "price": 109,
+        "buyer": "@stewe1344"
+    },
+    {
+        "uid": "ScXtVbBtDKl5",
+        "telegram_id": "@stewe1344",
+        "time": "2025-11-18 23:13:50",
+        "status": "active",
+        "stars_amount": "1446",
+        "price": 1576,
+        "buyer": ""
+    },
+    {
+        "uid": "8RQBI7kY5VcV",
+        "telegram_id": "@stewe12",
+        "time": "2025-11-20 9:26:17",
+        "status": "active",
+        "stars_amount": "250",
+        "price": 109,
+        "buyer": ""
+    },
+    {
+        "uid": "test123",
+        "telegram_id": "@stewe1748",
+        "time": "2025-11-20 23:57:03",
+        "status": "pending",
+        "stars_amount": 10,
+        "price": 109,
+        "buyer": "@ivan1344"
+    },
+    {
+        "uid": "qVZgYdWp80ao",
+        "telegram_id": "@stewe1748",
+        "time": "2025-11-21 00:04:29",
+        "status": "active",
+        "stars_amount": 214,
+        "price": 1090,
+        "buyer": ""
+    },
+    {
+        "uid": "LW2jHvAaCrFV",
+        "telegram_id": "@stewe1748",
+        "time": "2025-11-21 00:13:32",
+        "status": "active",
+        "stars_amount": 25,
+        "price": 27,
+        "buyer": ""
+    },
+    {
+        "uid": "UEWoIFSIVYW8",
+        "telegram_id": "@stewe1748",
+        "time": "2025-11-21 00:22:46",
+        "status": "active",
+        "stars_amount": 256,
+        "price": 2798,
+        "buyer": ""
+    },
+    {
+        "uid": "MoCp1utWxPGr",
+        "telegram_id": "@stewe1748",
+        "time": "2025-11-21 00:29:45",
+        "status": "active",
+        "stars_amount": 32242,
+        "price": 353424,
+        "buyer": ""
+    },
+    {
+        "uid": "xOXSqb8iXN6j",
+        "telegram_id": "@stewe1748",
+        "time": "2025-11-21 00:35:00",
+        "status": "active",
+        "stars_amount": 234,
+        "price": 255,
+        "buyer": ""
+    },
+    {
+        "uid": "HrpQmoZwxX5k",
+        "telegram_id": "@ivan1344",
+        "time": "2025-11-21 00:43:43",
+        "status": "active",
+        "stars_amount": 250,
+        "price": 1621,
+        "buyer": ""
+    },
+    {
+        "uid": "wziUG5VKG75t",
+        "telegram_id": "@ivan1344",
+        "time": "2025-11-21 01:31:07",
+        "status": "completed",
+        "stars_amount": 50,
+        "price": 134,
+        "buyer": "@admin"
+    },
+    {
+        "uid": "6kzgnwb3Yfu4",
+        "telegram_id": "@ivan1344",
+        "time": "2025-11-21 03:18:22",
+        "status": "completed",
+        "stars_amount": 10,
+        "price": 109,
+        "buyer": "@admin"
+    },
+    {
+        "uid": "UCffiKHwYLcQ",
+        "telegram_id": "@ivan1344",
+        "time": "2025-11-21 03:31:17",
+        "status": "active",
+        "stars_amount": 5,
+        "price": 1090,
+        "buyer": ""
+    }
+]

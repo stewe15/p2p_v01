@@ -18,6 +18,7 @@ load_dotenv('config.env')
 BOT_TOKEN = os.getenv('BOT2_TOKEN')
 API_BASE_URL = os.getenv('API_BASE_URL', 'http://localhost:5000')
 PAYMENT_PROVIDER_TOKEN = os.getenv('PAYMENT_PROVIDER_TOKEN')
+MOCK_PAYMENTS = os.getenv('MOCK_PAYMENTS', '1') == '1'
 
 
 if not BOT_TOKEN:
@@ -103,20 +104,108 @@ def buy_deal(deal_id, buyer_telegram_id):
         logging.error(f"Ошибка покупки (General): {e}")
         return None
 
+def get_balance(telegram_id: str):
+    try:
+        r = requests.post(f"{API_BASE_URL}/getBalance", json={"telegram_id": telegram_id})
+        if r.status_code == 200:
+            return r.json().get('balance')
+        logging.error(f"API Error get_balance: Status code {r.status_code}, Response: {r.text}")
+        return None
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Ошибка получения баланса (Network/HTTP): {e}")
+        return None
+    except Exception as e:
+        logging.error(f"Ошибка получения баланса (General): {e}")
+        return None
+
+def change_balance(telegram_id: str, delta_rub: int = 0, delta_stars: int = 0):
+    try:
+        payload = {
+            "telegram_id": telegram_id,
+            "delta_rub": delta_rub,
+            "delta_stars": delta_stars,
+        }
+        r = requests.post(f"{API_BASE_URL}/changeBalance", json=payload)
+        return r
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Ошибка change_balance (Network/HTTP): {e}")
+        return None
+    except Exception as e:
+        logging.error(f"Ошибка change_balance (General): {e}")
+        return None
+
+
+async def show_balance_menu(message: types.Message, telegram_id: str, buyer_tg_encoded: str | None = None):
+    bal = get_balance(telegram_id)
+    if not bal:
+        await message.answer("❌ Не удалось получить баланс. Попробуйте позже.")
+        return
+
+    rub = bal.get('rub', 0)
+    stars = bal.get('stars', 0)
+
+    text = (
+        "💼 <b>Ваш баланс</b>\n\n"
+        f"Рубли: <b>{rub} ₽</b>\n"
+        f"Звёзды: <b>{stars} ⭐</b>\n\n"
+        "Выберите, что хотите пополнить (mock):"
+    )
+
+    kb = InlineKeyboardBuilder()
+    suffix = f"_{buyer_tg_encoded}" if buyer_tg_encoded else ""
+    kb.add(
+        InlineKeyboardButton(
+            text="➕ Пополнить рубли (+1000₽)",
+            callback_data=f"topup_rub_1000{suffix}",
+        )
+    )
+    kb.add(
+        InlineKeyboardButton(
+            text="➕ Пополнить звёзды (+100⭐)",
+            callback_data=f"topup_stars_100{suffix}",
+        )
+    )
+    kb.adjust(1)
+
+    await message.answer(text, parse_mode="HTML", reply_markup=kb.as_markup())
+
 
 @dp.message(Command("start"))
 async def start_handler(message: types.Message):
-    deal_id = None
+    deal_arg = None
+    buyer_tg_encoded = None
 
     if message.text:
         parts = message.text.split(maxsplit=1)
         if len(parts) > 1:
-            deal_id = parts[1].strip()
+            deal_arg = parts[1].strip()
 
-    if deal_id:
-        deal_id = unquote_plus(deal_id)
+    if deal_arg:
+        deal_arg = unquote_plus(deal_arg)
+
+        if deal_arg.startswith("topup_"):
+            buyer_tg_encoded = deal_arg[len("topup_"):]
+            if not buyer_tg_encoded:
+                await message.answer("❌ Неверные параметры пополнения в ссылке.")
+                return
+            telegram_id = f"@{buyer_tg_encoded}" if not buyer_tg_encoded.startswith("@") else buyer_tg_encoded
+            await show_balance_menu(message, telegram_id, buyer_tg_encoded)
+            return
+
+        if deal_arg.startswith("b_"):
+            rest = deal_arg[2:]
+            subparts = rest.split("_")
+            if len(subparts) >= 2:
+                deal_id = subparts[0]
+                buyer_tg_encoded = "_".join(subparts[1:])
+            else:
+                await message.answer("❌ Неверный формат ID сделки в ссылке.")
+                return
+        else:
+            deal_id = deal_arg
+
         if 2 <= len(deal_id) <= 256 and any(c.isalnum() for c in deal_id):
-            await show_specific_deal_for_buy(message, deal_id)
+            await show_specific_deal_for_buy(message, deal_id, buyer_tg_encoded)
             return
         await message.answer("❌ Неверный формат ID сделки в ссылке.")
         return
@@ -127,63 +216,25 @@ async def start_handler(message: types.Message):
         parse_mode="HTML"
     )
 
-async def show_specific_deal_for_buy(message: types.Message, deal_id: str):
-    deal = get_deal_by_id(deal_id)
-    if not deal:
-        await message.answer("❌ Сделка не найдена.")
-        return
 
-    status = deal.get('status')
-    stars = int(deal.get('stars_amount', 0))
-    price = float(deal.get('price', 0))
-    seller = deal.get('telegram_id', 'Неизвестно')
-    time = deal.get('time', '')
-
-    text = f"""
-🛒 <b>Информация о сделке</b>
-
-📦 {stars} ⭐ за {price:.2f} ₽
-👤 Продавец: {seller}
-🕒 Создана: {time}
-🆔 ID: <code>{deal_id}</code>
-    """
-
-    
-    if status == "completed":
-        await message.answer(text + "\n✅ <b>Сделка уже завершена.</b>", parse_mode="HTML")
-        return
-
-    
-    keyboard = InlineKeyboardBuilder()
-    if status != "completed":
-        keyboard.add(
-            InlineKeyboardButton(
-                text=f"Оплатить {stars} ⭐ за {price:.2f}₽",
-                callback_data=f"buy_{deal_id}"
-            )
-        )
-
-    
-    status_text = ""
-    if status == "pending":
-        status_text = "\n⏳ <b>Сделка ожидает оплаты.</b>"
-    elif status == "active":
-        status_text = "\n🟢 <b>Сделка активна и доступна к покупке.</b>"
-
-    await message.answer(
-        text + status_text,
-        parse_mode="HTML",
-        reply_markup=keyboard.as_markup() 
-    )
-
-
-
+@dp.message(Command("balance", "topup"))
+async def balance_handler(message: types.Message):
+    telegram_id = f"@{message.from_user.username}" if message.from_user.username else str(message.from_user.id)
+    buyer_tg_encoded = telegram_id[1:] if telegram_id.startswith("@") else telegram_id
+    await show_balance_menu(message, telegram_id, buyer_tg_encoded)
 
 
 @dp.callback_query(lambda c: c.data.startswith("buy_"))
 async def process_buy_callback(c: types.CallbackQuery):
-    deal_id = c.data.replace("buy_", "")
-    
+    payload = c.data[len("buy_"):]
+    parts = payload.split("_")
+    if len(parts) == 1:
+        deal_id = parts[0]
+        buyer_tg_encoded = None
+    else:
+        deal_id = parts[0]
+        buyer_tg_encoded = "_".join(parts[1:])
+
     deal = get_deal_by_id(deal_id)
     if not deal:
         await c.message.edit_text("❌ Сделка не найдена или недоступна.")
@@ -201,10 +252,28 @@ async def process_buy_callback(c: types.CallbackQuery):
         await c.message.answer("❌ Ошибка: Неверная сумма для оплаты.")
         await c.answer()
         return
+    
+    # MOCK-режим: если токен провайдера не задан или включён mock-флаг,
+    # считаем, что оплата прошла сразу
+    if not PAYMENT_PROVIDER_TOKEN or MOCK_PAYMENTS:
 
-    if not PAYMENT_PROVIDER_TOKEN:
-        await c.message.answer("❌ Ошибка: Токен платежного провайдера не настроен.")
-        await c.answer()
+        if buyer_tg_encoded:
+            buyer_telegram_id = f"@{buyer_tg_encoded}" if not buyer_tg_encoded.startswith("@") else buyer_tg_encoded
+        else:
+            buyer_telegram_id = f"@{c.from_user.username}" if c.from_user.username else str(c.from_user.id)
+
+        result = buy_deal(deal_id, buyer_telegram_id)
+        if result and result.get('success'):
+            await c.message.edit_text(
+                f"✅ (MOCK) Оплата проведена. Сделка <code>{deal_id}</code> ожидает подтверждения продавца.",
+                parse_mode="HTML"
+            )
+        else:
+            await c.message.edit_text(
+                f"❌ (MOCK) Оплата прошла, но не удалось обновить сделку <code>{deal_id}</code>.",
+                parse_mode="HTML"
+            )
+        await c.answer("Оплата в mock-режиме", show_alert=False)
         return
     
     logging.info(f"Сделка ID: {deal_id}, Цена RUB: {price:.2f}, Цена копейки: {price_kopecks}")
@@ -220,7 +289,7 @@ async def process_buy_callback(c: types.CallbackQuery):
             prices=[
                 LabeledPrice(label=f"{stars} ⭐", amount=price_kopecks)
             ],
-            payload=f"deal_{deal_id}",
+            payload=f"deal_{deal_id}_{buyer_tg_encoded}" if buyer_tg_encoded else f"deal_{deal_id}",
             start_parameter="invoice_payment" 
         )
         
@@ -253,13 +322,21 @@ async def successful_payment_handler(message: types.Message):
     if message.successful_payment:
         payload = message.successful_payment.invoice_payload
         if payload.startswith("deal_"):
-            deal_id = payload.split("_", 1)[1]
-            username = f"@{message.from_user.username}" if message.from_user.username else str(message.from_user.id)
+            rest = payload[len("deal_"):]
+            parts = rest.split("_")
+            deal_id = parts[0]
+            buyer_tg_encoded = "_".join(parts[1:]) if len(parts) > 1 else None
+
+            if buyer_tg_encoded:
+                buyer_telegram_id = f"@{buyer_tg_encoded}" if not buyer_tg_encoded.startswith("@") else buyer_tg_encoded
+            else:
+                buyer_telegram_id = f"@{message.from_user.username}" if message.from_user.username else str(message.from_user.id)
+
             
+            logging.info(f"Успешная оплата! Deal ID: {deal_id}, Buyer: {buyer_telegram_id}")
             
-            logging.info(f"Успешная оплата! Deal ID: {deal_id}, Buyer: {username}")
-            
-            result = buy_deal(deal_id, username)
+            result = buy_deal(deal_id, buyer_telegram_id)
+
             if result and result.get('success'):
                 await message.answer(
                     f"✅ Оплата успешно проведена!\n\n"
@@ -305,6 +382,55 @@ async def deals_handler(message: types.Message):
 async def callback_handler(c: types.CallbackQuery):
     data = c.data
     
+    if data.startswith("topup_"):
+        parts = data.split("_")
+        if len(parts) < 3:
+            await c.answer("Неверные параметры пополнения", show_alert=True)
+            return
+
+        _, kind, amount_str, *rest = parts
+        try:
+            amount = int(amount_str)
+        except ValueError:
+            await c.answer("Неверная сумма", show_alert=True)
+            return
+
+        buyer_tg_encoded = "_".join(rest) if rest else None
+
+        if buyer_tg_encoded:
+            telegram_id = f"@{buyer_tg_encoded}" if not buyer_tg_encoded.startswith("@") else buyer_tg_encoded
+        else:
+            telegram_id = f"@{c.from_user.username}" if c.from_user.username else str(c.from_user.id)
+
+
+        delta_rub = amount if kind == "rub" else 0
+        delta_stars = amount if kind == "stars" else 0
+
+        resp = change_balance(telegram_id, delta_rub=delta_rub, delta_stars=delta_stars)
+
+        if not resp:
+            await c.answer("Ошибка пополнения", show_alert=True)
+            return
+
+        try:
+            data_json = resp.json()
+        except Exception:
+            data_json = {}
+
+        if resp.status_code == 200 and data_json.get("success"):
+            bal = data_json.get("balance", {})
+            rub = bal.get('rub', 0)
+            stars = bal.get('stars', 0)
+            await c.message.edit_text(
+                f"💼 Баланс обновлён\n\nРубли: <b>{rub} ₽</b>\nЗвёзды: <b>{stars} ⭐</b>",
+                parse_mode="HTML",
+            )
+            await c.answer("Баланс пополнен (mock)", show_alert=False)
+        else:
+            msg = data_json.get("message") or "Не удалось пополнить баланс"
+            await c.answer(msg, show_alert=True)
+        return
+
     if data.startswith("refresh_deals"):
         
         deals = get_all_deals()

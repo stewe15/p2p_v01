@@ -3,37 +3,17 @@ import { FC, useEffect, useState } from 'react';
 import { Flex, Tag, Button, Typography, Modal, Divider, Input } from 'antd';
 import { ArrowRightOutlined } from '@ant-design/icons';
 import { Deal } from '@/app/interfaces/interfaces';
-import { CurrencySign } from '@/app/interfaces/interfaces';
-import { TelegramStar } from '@/app/interfaces/interfaces';
+import { CurrencySign, TelegramStar } from '@/app/interfaces/interfaces';
+import { DEAL_STATUS_COLORS, DEAL_STATUS_TEXT } from '@/app/shared/dealsDomain';
+import { DealsApi } from '@/app/shared/dealsApi';
 
 import Text from 'antd/es/typography/Text'; 
 import { useModal } from '../hooks/useModal';
 import Cookies from 'js-cookie';
 import { MyDeal } from './MyDeal';
 
-const statusColors = {
-  active: 'success',
-  pending: 'warning',
-  completed: 'processing',
-};
-
-const statusText = {
-  active: 'Активна',
-  pending: 'Ожидает оплаты',
-  completed: 'Завершена',
-};
-
-interface ForBuyIO{
-  dealUID:string;
-  buyer?:string;
-}
-
-interface ResponseIO{
-  message: string;
-  success:boolean;
-}
-
 export const DealRow: FC<Deal> = ({ uid, time, status, stars_amount, price, telegram_id }) => {
+
   const popUp = useModal();
   const [tgFlag, setTgFlag] = useState<boolean>(false);
   const [setTgId, setTelegramID] = useState<string>('');
@@ -67,27 +47,14 @@ export const DealRow: FC<Deal> = ({ uid, time, status, stars_amount, price, tele
   try {
     const usName: string | undefined = Cookies.get('telegram_id');
 
-    const client: ForBuyIO = {
+    const client = {
       dealUID: uid,
       buyer: tgFlag ? usName : setTgId,
     };
 
     console.log('Отправляем данные сделки:', client);
 
-    const response = await fetch('/api/updateDeals', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(client),
-    });
-
-    if (!response.ok) {
-      console.error('Ошибка при обновлении сделки:', response.statusText);
-      return;
-    }
-
-    const data: ResponseIO = await response.json();
+    const data = await DealsApi.updateDeal(client);
 
     if (data.success) {
       console.log('Сделка обновлена успешно');
@@ -111,9 +78,16 @@ export const DealRow: FC<Deal> = ({ uid, time, status, stars_amount, price, tele
           <Text style={{ color: 'var(--foreground)', fontSize: '20px', fontWeight: 'bold' }}>
             {stars_amount} Звёзд
           </Text>
+          <Tag
+            color={DEAL_STATUS_COLORS[status]}
+            style={{
+              marginTop: 8,
+              alignSelf: 'flex-start',
+            }}
+          >
+            {DEAL_STATUS_TEXT[status]}
+          </Tag>
         </Flex>
-
-        <Tag color={statusColors[status]}>{statusText[status]}</Tag>
 
         <Flex vertical align="end" gap={8} style={{paddingBottom: '20px'}}>
           <Text style={{ color: 'var(--muted)', fontSize: '12px' }}>

@@ -1,10 +1,15 @@
 "use client";
+
 import React, { FC, useEffect, useMemo, useState, useCallback } from "react";
-import { Card, Flex, Button } from "antd";
+import { Card, Flex, Button, Grid } from "antd";
 import Title from "antd/es/typography/Title";
 import { DealRow } from "./DealCard";
 import { Deal, DealStatus } from "../interfaces/interfaces";
+import { normalizeDealStatus } from "@/app/shared/dealsDomain";
+import { DealsApi } from "@/app/shared/dealsApi";
 import { useSSE } from "../hooks/useSSE"; 
+
+const { useBreakpoint } = Grid;
 
 interface MainPageProps {
   className?: string;
@@ -13,22 +18,13 @@ interface MainPageProps {
 export const MainPage: FC<MainPageProps> = () => {
   const [filterStatus, setFilterStatus] = useState<DealStatus | "all">("all");
   const [deals, setDeals] = useState<Deal[]>([]);
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
 
   const fetchDeals = useCallback(async () => {
     try {
-      const response = await fetch("/api/getDeals", {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-      });
-
-      if (!response.ok) {
-        console.error("Не удалось получить сделки");
-        setDeals([]);
-        return;
-      }
-
-      const data = await response.json();
-      setDeals(data.deals);
+      const data = await DealsApi.getDeals();
+      setDeals(data);
     } catch (error) {
       console.error("Ошибка при получении сделок:", error);
       setDeals([]);
@@ -39,7 +35,7 @@ export const MainPage: FC<MainPageProps> = () => {
     fetchDeals();
   }, [fetchDeals]);
 
-  // 👇 используем устойчивый SSE-хук
+
   useSSE("/api/events", (data) => {
     if (data.type === "new_deal") {
       console.log("Новая сделка:", data.deal);
@@ -47,39 +43,47 @@ export const MainPage: FC<MainPageProps> = () => {
     }
   });
 
-  const normalizeStatus = (status: string): DealStatus => {
-    const s = (status || "").toString().trim().toLowerCase();
-    if (["active", "in_progress", "open"].includes(s)) return "active";
-    if (["pending", "awaiting", "awaiting_payment"].includes(s))
-      return "pending";
-    return "completed";
-  };
-
   const filteredDeals = useMemo(() => {
     if (filterStatus === "all") return deals;
     return deals.filter(
-      (d) => normalizeStatus(d.status as string) === filterStatus
+      (d) => normalizeDealStatus(d.status as string) === filterStatus
     );
   }, [deals, filterStatus]);
 
   return (
     <Flex vertical style={{ width: "100%", height: "100%" }}>
       <Card className="glass" style={{ marginBottom: "16px", width: "100%" }}>
-        <Flex justify="space-between" align="center" style={{ marginBottom: "16px" }}>
-          <Title level={3} style={{ margin: 0, color: "var(--foreground)" }}>
-            Сделки:
+        <Flex
+          justify={isMobile ? "flex-start" : "space-between"}
+          align={isMobile ? "flex-start" : "center"}
+          vertical={isMobile}
+          style={{ marginBottom: isMobile ? 12 : 16, gap: isMobile ? 8 : 0 }}
+        >
+          <Title
+            level={isMobile ? 4 : 3}
+            style={{ margin: 0, color: "var(--foreground)" }}
+          >
+            Сделки
           </Title>
           <Button.Group
             style={{
               background: "var(--surface)",
               padding: 4,
+              display: "flex",
+              flexWrap: isMobile ? "wrap" : "nowrap",
+              width: isMobile ? "100%" : "auto",
+              gap: isMobile ? 4 : 0,
             }}
           >
             <Button
               onClick={() => setFilterStatus("all")}
               type={filterStatus === "all" ? "primary" : "default"}
               ghost
-              style={{ color: "#fff", borderColor: "var(--border)" }}
+              style={{
+                color: "#fff",
+                borderColor: "var(--border)",
+                flex: isMobile ? 1 : undefined,
+              }}
             >
               Все
             </Button>
@@ -87,7 +91,11 @@ export const MainPage: FC<MainPageProps> = () => {
               onClick={() => setFilterStatus("active")}
               type={filterStatus === "active" ? "primary" : "default"}
               ghost
-              style={{ color: "#fff", borderColor: "var(--border)" }}
+              style={{
+                color: "#fff",
+                borderColor: "var(--border)",
+                flex: isMobile ? 1 : undefined,
+              }}
             >
               Активные
             </Button>
@@ -95,7 +103,11 @@ export const MainPage: FC<MainPageProps> = () => {
               onClick={() => setFilterStatus("pending")}
               type={filterStatus === "pending" ? "primary" : "default"}
               ghost
-              style={{ color: "#fff", borderColor: "var(--border)" }}
+              style={{
+                color: "#fff",
+                borderColor: "var(--border)",
+                flex: isMobile ? 1 : undefined,
+              }}
             >
               Ожидают оплаты
             </Button>
@@ -103,7 +115,11 @@ export const MainPage: FC<MainPageProps> = () => {
               onClick={() => setFilterStatus("completed")}
               type={filterStatus === "completed" ? "primary" : "default"}
               ghost
-              style={{ color: "#fff", borderColor: "var(--border)" }}
+              style={{
+                color: "#fff",
+                borderColor: "var(--border)",
+                flex: isMobile ? 1 : undefined,
+              }}
             >
               Завершённые
             </Button>

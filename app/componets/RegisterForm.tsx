@@ -1,8 +1,10 @@
 "use client"
 import { FC, useState } from "react";
-import { Form, Input, Button, message } from "antd";
+import { App, Form, Input, Button } from "antd";
 import Title from "antd/es/typography/Title";
+import Cookies from 'js-cookie';
 import { RegisterAndLoginResponse } from "../interfaces/interfaces";
+import { AuthApi } from "@/app/shared/authApi";
 
 
 interface RegisterFormProps {
@@ -11,29 +13,23 @@ interface RegisterFormProps {
 
 export const RegisterForm: FC<RegisterFormProps> = ({ onSubmit }) => {
   const [form] = Form.useForm();
+  const { message } = App.useApp();
   const handleFinish = async (values: any) => {
   console.log("Register values:", values);
 
   try {
-    const response = await fetch('/api/register', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(values),
-    });
+    const result = await AuthApi.register(values);
 
-    if (!response.ok) {
+    if (!result) {
       message.error('Ошибка при отправке данных');
       return;
     }
 
-    const result: RegisterAndLoginResponse = await response.json();
-
     if (result.success) {
       console.log('Регистрация успешна:', result);
 
-      
+      Cookies.set('username', result.username || '', { expires: 7 });
+      Cookies.set('telegram_id', result.telegram_id || '', { expires: 7 });
 
       onSubmit({
         success: result.success,
@@ -42,7 +38,7 @@ export const RegisterForm: FC<RegisterFormProps> = ({ onSubmit }) => {
         password: '',
       });
 
-      message.success('Регистрация успешна!');
+      message.success('Регистрация успешна! Вход выполнен.');
     } else {
       message.error(result.message || 'Ошибка регистрации');
     }
@@ -64,7 +60,10 @@ export const RegisterForm: FC<RegisterFormProps> = ({ onSubmit }) => {
         <Title level={5} style={{color: 'var(--foreground)'}}>Telegram ID</Title>
       <Form.Item
         name="telegram_id"
-        rules={[{ required: true, message: "Введите ваш Telegram ID" }]}
+        rules={[
+          { required: true, message: "Введите ваш Telegram ID" },
+          { pattern: /^@.+$/, message: "Telegram ID должен начинаться с @" }
+        ]}
       >
         <Input placeholder="123456789" />
       </Form.Item>
@@ -80,7 +79,10 @@ export const RegisterForm: FC<RegisterFormProps> = ({ onSubmit }) => {
         <Title level={5} style={{color: 'var(--foreground)'}}>Password</Title>
       <Form.Item
         name="password"
-        rules={[{ required: true, message: "Введите пароль" }]}
+        rules={[
+          { required: true, message: "Введите пароль" },
+          { min: 8, message: "Пароль должен содержать минимум 8 символов" }
+        ]}
       >
         <Input.Password placeholder="Пароль" />
       </Form.Item>

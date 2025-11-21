@@ -1,10 +1,10 @@
 "use client"
 import { FC } from "react";
-import { Form, Input, Button, message } from "antd";
+import { App, Form, Input, Button } from "antd";
 import Title from "antd/es/typography/Title";
 import Cookies from 'js-cookie';
 import {RegisterAndLoginResponse} from '../interfaces/interfaces'
-import { User } from "../interfaces/interfaces";
+import { AuthApi } from "@/app/shared/authApi";
 
 interface LoginFormProps {
   onSubmit: (values: {success: boolean; telegram_id: string; username: string; password: string }) => void;
@@ -13,25 +13,18 @@ interface LoginFormProps {
 
 export const LoginForm: FC<LoginFormProps> = ({ onSubmit }) => {
   const [form] = Form.useForm();
+  const { message } = App.useApp();
 
   const handleFinish = async (values: any) => {
   try {
     console.log("Login values:", values);
 
-    const response = await fetch('/api/login', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(values),
-    });
+    const result = await AuthApi.login(values);
 
-    if (!response.ok) {
+    if (!result) {
       message.error('Ошибка при отправке данных');
       return;
     }
-
-    const result: RegisterAndLoginResponse = await response.json();
 
     if (result.success) {
       Cookies.set('username', result.username, { expires: 7 });
@@ -68,7 +61,10 @@ export const LoginForm: FC<LoginFormProps> = ({ onSubmit }) => {
         <Title level={5} style={{color: 'var(--foreground)'}}>Telegram ID</Title>
       <Form.Item
         name="telegram_id"
-        rules={[{ required: true, message: "Введите ваш Telegram ID" }]}
+        rules={[
+          { required: true, message: "Введите ваш Telegram ID" },
+          { pattern: /^@.+$/, message: "Telegram ID должен начинаться с @" }
+        ]}
       >
         <Input placeholder="123456789" />
       </Form.Item>
@@ -83,7 +79,10 @@ export const LoginForm: FC<LoginFormProps> = ({ onSubmit }) => {
         <Title level={5} style={{color: 'var(--foreground)'}}>Password</Title>
       <Form.Item
         name="password"
-        rules={[{ required: true, message: "Введите пароль" }]}
+        rules={[
+          { required: true, message: "Введите пароль" },
+          { min: 8, message: "Пароль должен содержать минимум 8 символов" }
+        ]}
       >
         <Input.Password placeholder="Пароль" />
       </Form.Item>

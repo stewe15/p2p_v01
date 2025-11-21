@@ -1,10 +1,10 @@
 "use client";
 import { FC, useEffect, useState } from "react";
-import { Form, Input, Button, message, Flex, Divider } from "antd";
+import { Form, Input, Button, message, Flex } from "antd";
 import Title from "antd/es/typography/Title";
 import Text from 'antd/es/typography/Text'; 
 import Cookies from 'js-cookie';
-import { Deal } from "../interfaces/interfaces";
+import { DealsApi } from "@/app/shared/dealsApi";
 
 interface CreateDealFormProps {
   onSubmit: (values: {uid: string; tgId: string; stars: number; price: number; success:boolean }) => void;
@@ -20,81 +20,88 @@ export const CreateDealForm: FC<CreateDealFormProps> = ({ onSubmit }) => {
   const [form] = Form.useForm();
   const [key, setKey] = useState<string>('');
   const [tgId, setTgId] = useState<string>('');
-  const currentDate: Date = new Date();
-  const year: number = currentDate.getFullYear();
-  const month: number = currentDate.getMonth() + 1; 
-  const day: number = currentDate.getDate();
-  const hours: number = currentDate.getHours();
-  const minutes: number = currentDate.getMinutes();
-  const seconds: number = currentDate.getSeconds();
+  
 
   const handleFinish = (values: any) => {
   if (values.stars <= 0 || values.price <= 0) {
     message.error("Введите корректные значения");
     return;
   }
+  if (!key) {
+    message.error('Ключ сделки ещё не получен, попробуйте чуть позже');
+    onSubmit({
+      success: false,
+      uid: '',
+      tgId: '',
+      stars: 0,
+      price: 0,
+    });
+    return;
+  }
 
-  const sendValues = async () => {
-    const deals: Deal = {
-      ...values,
+  const rawTgId = tgId || '';
+  const safeTgId = rawTgId.startsWith('@') ? rawTgId.slice(1) : rawTgId;
+
+  if (!safeTgId) {
+    message.error('Не удалось получить ваш Telegram ID с сайта');
+    onSubmit({
+      success: false,
       uid: key,
-      stars_amount: values.stars,
-      status: 'active',
-      telegram_id: tgId,
-      time: `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`,
-      buyer: '',
+      tgId: '',
+      stars: values.stars,
       price: values.price,
-    };
+    });
+    return;
+  }
 
-    try {
-      const response = await fetch('/api/handleDeal', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(deals),
+  const payload = `c_${key}_${safeTgId}_${values.stars}_${values.price}`;
+
+  try {
+    const tgUrl = `https://t.me/seller_stars_kur_bot?start=${payload}`;
+    const win = window.open(tgUrl, '_blank');
+
+    if (!win) {
+      message.error('Не удалось открыть Telegram. Разрешите всплывающие окна и попробуйте снова');
+      onSubmit({
+        success: false,
+        uid: key,
+        tgId: tgId,
+        stars: values.stars,
+        price: values.price,
       });
-
-      if (!response.ok) {
-        message.error('Ошибка при отправке данных');
-        return;
-      }
-
-      const data: RespInter = await response.json();
-
-      if (data.success) {
-        console.log('Сделка успешно создана:', data);
-        onSubmit({
-          success: data.success,
-          uid: '',
-          tgId: '',
-          stars: 0,
-          price: 0,
-        });
-      }
-    } catch (error) {
-      console.error('Ошибка при создании сделки:', error);
-      message.error('Ошибка при создании сделки');
+      return;
     }
-  };
 
-  sendValues();
-  onSubmit(values);
+    message.success('Откройте Telegram и завершите создание сделки в боте продавца');
+    onSubmit({
+      success: true,
+      uid: key,
+      tgId: tgId,
+      stars: values.stars,
+      price: values.price,
+    });
+  } catch (error) {
+    console.error('Ошибка при открытии бота продавца:', error);
+    message.error('Ошибка при открытии бота продавца');
+    onSubmit({
+      success: false,
+      uid: key,
+      tgId: tgId,
+      stars: values.stars,
+      price: values.price,
+    });
+  }
 };
 
 useEffect(() => {
   const getKey = async () => {
     try {
-      const response = await fetch('/api/getRandomKey', {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-      });
-
-      if (!response.ok) {
+      const keyFromApi = await DealsApi.getRandomKey();
+      if (!keyFromApi) {
         message.error('Ошибка при получении ключа');
         return;
       }
-
-      const data: KeyIO = await response.json();
-      setKey(data.key);
+      setKey(keyFromApi);
     } catch (error) {
       console.error('Ошибка при получении ключа:', error);
       message.error('Ошибка при получении ключа');
